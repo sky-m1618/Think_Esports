@@ -9,7 +9,7 @@ const responseMessage = ref('')
 const sendData = async () => {
   try {
     // 🟢 Precision target pointing to your exact live Flask API endpoint
-    const response = await fetch('https://onrender.com', {
+    const response = await fetch('https://thinkesports.onrender.com', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json' 
