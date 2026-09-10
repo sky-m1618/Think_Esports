@@ -8,15 +8,24 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # 2. Configure the database connection string
 # Render uses 'postgres://', but Python requires 'postgresql://'. We replace it dynamically.
-db_url = os.environ.get("DATABASE_URL", "sqlite:///local_dev.db") # Fallback to local SQLite if URL missing
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+db_url = os.environ.get("DATABASE_URL")
+
+if db_url:
+    # 1. Clean up Render's legacy prefix if present
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    
+    # 2. Force SQLAlchemy to use the modern 'psycopg' (v3) driver dialect
+    if "postgresql+psycopg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+else:
+    # Safe fallback for local development if the environment variable drops
+    db_url = "sqlite:///local_dev.db"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
-
 # 3. Define the Database Table Structure
 class PlayerRegistration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
