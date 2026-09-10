@@ -36,7 +36,7 @@ const sendData = async () => {
 <template>
   <div class="form-container">
     <h2>Player Registration</h2>
-    <h2>This is fucking goat</h2>
+    <!-- <h2>This is fucking goat</h2> -->
     <input v-model="username" placeholder="Enter Username" />
     <input v-model="gameId" placeholder="Enter Game ID" />
     <button @click="sendData">Submit Entry</button>
