@@ -38,7 +38,11 @@ class PlayerRegistration(db.Model):
 
 # 4. Automatically create tables inside the database when the app starts
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("Database tables initialized successfully.")
+    except Exception as e:
+        print(f"Database connection skipped during build: {str(e)}")
 
 @app.route("/api/submit-details", methods=["POST"])
 def receive_details():
