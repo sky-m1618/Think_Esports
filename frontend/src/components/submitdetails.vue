@@ -8,20 +8,29 @@ const responseMessage = ref('')
 
 const sendData = async () => {
   try {
+    // 🟢 Precision target pointing to your exact live Flask API endpoint
     const response = await fetch('https://onrender.com', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify({
         username: username.value,
         gameId: gameId.value
       })
     })
+
     const data = await response.json()
+    
+    // Updates your UI with the success or error message sent by Flask
     responseMessage.value = data.message
+    
   } catch (error) {
+    console.error("Connection failed:", error)
     responseMessage.value = "Could not reach the server."
   }
 }
+
 </script>
 
 <template>
