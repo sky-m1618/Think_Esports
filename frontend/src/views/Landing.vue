@@ -116,13 +116,13 @@ const topTeams = computed(() => teams.value.slice(0, 4));
 
 onMounted(async () => {
   try {
-    const { data } = await client.get("/tournaments/");
+    const { data } = await client.get("/api/tournaments/");
     tournaments.value = data;
   } finally {
     loadingTournaments.value = false;
   }
   try {
-    const { data } = await client.get("/teams/");
+    const { data } = await client.get("/api/teams/");
     teams.value = data;
   } finally {
     loadingTeams.value = false;
