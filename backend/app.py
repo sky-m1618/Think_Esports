@@ -73,6 +73,14 @@ def receive_details():
         print(f"Database error: {str(e)}")
         return jsonify({"status": "error", "message": "Failed to save to database"}), 500
 
+@app.route('/api/test/server/production')
+def test():
+    return jsonify({
+                "status": "success",
+                "message": "Successfully saved to the database!"
+            }), 200
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

@@ -128,6 +128,17 @@ onMounted(async () => {
     loadingTeams.value = false;
   }
 });
+
+onMounted( async ()=>{
+  try {
+    const { data } = await client.get("/api/test/server/production");
+    console.log(data)
+  }catch{
+    console.log('Not working')
+  }
+});
+
+
 </script>
 
 <style scoped>
