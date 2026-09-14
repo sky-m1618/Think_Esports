@@ -20,7 +20,7 @@ if db_url:
         db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
     # Safe fallback for local development if the environment variable drops
-    db_url = "sqlite:///local_dev.db"
+    db_url = "sqlite:///thinkesports.db"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
