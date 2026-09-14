@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/test_api": {
+      "/api": {
         target: "http://localhost:5000/",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/test_api/, ""),
