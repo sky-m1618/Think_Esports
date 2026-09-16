@@ -3,7 +3,7 @@ import axios from "axios";
 const isLocal = import.meta.env.DEV; 
 
 const client = axios.create({
-  baseURL: isLocal ? '/api' : 'https://thinkesports.onrender.com/api',
+  baseURL: isLocal ? '/api' : 'https://thinkesports.onrender.com/api/',
   headers: { "Content-Type": "application/json" },
 });
 
