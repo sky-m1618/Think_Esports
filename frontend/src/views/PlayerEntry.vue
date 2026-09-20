@@ -4,8 +4,7 @@
       <h2>{{ step === "phone" ? "Sign in to Arena" : "Verify your number" }}</h2>
       <p v-if="step === 'phone'">Enter your phone number to sign in or create a player profile.</p>
       <p v-else>
-        We sent a 6-digit code to <strong>{{ fullPhone }}</strong
-        >. (Demo mode: use <code>123456</code>.)
+        We sent a 6-digit code to <strong>{{ fullPhone }}</strong>
       </p>
 
       <form v-if="step === 'phone'" @submit.prevent="submitPhone">
@@ -23,6 +22,9 @@
           </div>
           <p v-if="errors.phone" class="error-text">{{ errors.phone }}</p>
         </div>
+        
+        <div id="recaptcha-container" style="margin-bottom: 15px;"></div>
+
         <button class="btn btn-primary btn-block" :disabled="loading">
           <span v-if="loading" class="spinner"></span>
           <span v-else>Send OTP</span>
@@ -47,7 +49,7 @@
           <span v-if="loading" class="spinner"></span>
           <span v-else>Verify &amp; Continue</span>
         </button>
-        <button type="button" class="btn btn-outline btn-block" style="margin-top: 10px" @click="step = 'phone'">
+        <button type="button" class="btn btn-outline btn-block" style="margin-top: 10px" @click="resetFlow">
           Change number
         </button>
       </form>
@@ -60,6 +62,10 @@ import { ref, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { usePlayerStore } from "../store/player";
 import { useToastStore } from "../store/toast";
+
+// Firebase imports
+import { auth } from "../firebase.js";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
 const router = useRouter();
 const route = useRoute();
@@ -75,21 +81,36 @@ const loading = ref(false);
 const needsName = ref(false);
 const errors = ref({});
 
-const fullPhone = computed(() => phone.value);
+const fullPhone = computed(() => `${countryCode.value}${phone.value}`);
+let confirmationResult = null;
+
+function setupRecaptcha() {
+  if (window.recaptchaVerifier) {
+    window.recaptchaVerifier.clear();
+  }
+  window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    'size': 'normal',
+    'callback': () => {},
+  });
+}
 
 async function submitPhone() {
   errors.value = {};
-  if (!/^\d{10,15}$/.test(phone.value)) {
-    errors.value.phone = "Enter a valid phone number (10-15 digits)";
+  if (!/^\d{7,15}$/.test(phone.value)) {
+    errors.value.phone = "Enter a valid phone number";
     return;
   }
   loading.value = true;
   try {
-    await playerStore.requestOtp(phone.value);
+    setupRecaptcha();
+    confirmationResult = await signInWithPhoneNumber(auth, fullPhone.value, window.recaptchaVerifier);
     step.value = "otp";
-    toast.success("OTP sent (demo code: 123456)");
+    toast.success(`OTP sent to ${fullPhone.value}`);
   } catch (e) {
-    toast.error(e.friendlyMessage);
+    console.error(e);
+    toast.error(e.message || "Failed to send OTP. Try test number +91 9999999999 with code 123456");
+    // Reset recaptcha if it fails
+    if(window.recaptchaVerifier) window.recaptchaVerifier.render().then(wid => window.grecaptcha.reset(wid));
   } finally {
     loading.value = false;
   }
@@ -103,44 +124,37 @@ async function submitOtp() {
   }
   loading.value = true;
   try {
-    await playerStore.verifyOtp({ phoneNumber: phone.value, otp: otp.value, playerName: playerName.value });
+    // 1. Verify with Firebase locally
+    const result = await confirmationResult.confirm(otp.value);
+    const idToken = await result.user.getIdToken();
+    
+    // 2. Now send Firebase token to YOUR Flask backend to create/login player
+    // Your playerStore.verifyOtp should now accept idToken instead of otp
+    await playerStore.verifyWithFirebase({ 
+      idToken: idToken, 
+      phoneNumber: fullPhone.value, 
+      playerName: playerName.value 
+    });
+
     toast.success(`Welcome, ${playerStore.player.player_name}!`);
     router.push(route.query.redirect || "/dashboard");
   } catch (e) {
-    if (e.response?.status === 400 && /player_name/i.test(e.response.data?.error || "")) {
+    console.error(e);
+    if (e.response?.status === 400 && /player_name/i.test(e.response?.data?.error || "")) {
       needsName.value = true;
-      errors.value.name = "";
     } else {
-      toast.error(e.friendlyMessage);
+      toast.error(e.friendlyMessage || "Invalid OTP");
     }
   } finally {
     loading.value = false;
   }
 }
-</script>
 
-<style scoped>
-.entry-page {
-  display: flex;
-  justify-content: center;
-  padding: 60px 20px;
+function resetFlow(){
+  step.value = 'phone';
+  otp.value = '';
+  if (window.recaptchaVerifier) {
+    window.recaptchaVerifier.clear();
+  }
 }
-.entry-card {
-  max-width: 440px;
-  width: 100%;
-}
-.phone-row {
-  display: flex;
-  gap: 10px;
-}
-.phone-row select {
-  width: 110px;
-  min-height: 44px;
-  border-radius: var(--radius-md);
-  border: 1.5px solid var(--color-border);
-  padding: 0 8px;
-}
-.phone-row input {
-  flex: 1;
-}
-</style>
+</script>

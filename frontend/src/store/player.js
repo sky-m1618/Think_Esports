@@ -33,6 +33,16 @@ export const usePlayerStore = defineStore("player", {
       localStorage.setItem("player_data", JSON.stringify(data.player));
       return data;
     },
+    async verifyWithFirebase({ idToken, phoneNumber, playerName }) {
+  const res = await axios.post('/api/auth/verify-firebase', {
+    idToken,
+    phone: phoneNumber,
+    player_name: playerName
+  });
+  this.player = res.data.player;
+  this.token = res.data.token;
+  localStorage.setItem('token', res.data.token);
+},
 
     async fetchDashboard() {
       const { data } = await client.get("/players/me", { role: "player" });
