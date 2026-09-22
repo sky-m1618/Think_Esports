@@ -49,8 +49,15 @@ class Player(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     phone_number = db.Column(db.String(20), unique=True, nullable=False, index=True)
     player_name = db.Column(db.String(80), nullable=False)
+    pin_hash = db.Column(db.String(255), nullable=True)   # NEW
     created_at = db.Column(db.DateTime(timezone=True), default=now)
+    def set_pin(self, raw_pin):
+        self.pin_hash = generate_password_hash(raw_pin)
 
+    def check_pin(self, raw_pin):
+        if not self.pin_hash:
+            return False
+        return check_password_hash(self.pin_hash, raw_pin)
     def to_dict(self):
         return {
             "id": self.id,

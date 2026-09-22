@@ -14,25 +14,34 @@ export const usePlayerStore = defineStore("player", {
   },
 
   actions: {
-    async requestOtp(phoneNumber) {
-      const { data } = await client.post("/auth/player/request-otp", {
-        phone_number: phoneNumber,
-      });
-      return data;
-    },
+    async checkPhone(phoneNumber) {
+  const { data } = await client.get(`/players/check/${phoneNumber}`);
+  return data;
+},
 
-    async verifyOtp({ phoneNumber, otp, playerName }) {
-      const { data } = await client.post("/auth/player/verify-otp", {
-        phone_number: phoneNumber,
-        otp,
-        player_name: playerName,
-      });
-      this.token = data.token;
-      this.player = data.player;
-      localStorage.setItem("player_token", data.token);
-      localStorage.setItem("player_data", JSON.stringify(data.player));
-      return data;
-    },
+async loginWithPin({ phoneNumber, pin }) {
+  const { data } = await client.post("/auth/player/login", {
+    phone_number: phoneNumber,
+    pin,
+  });
+  this.token = data.token;
+  this.player = data.player;
+  localStorage.setItem("player_token", data.token);
+  localStorage.setItem("player_data", JSON.stringify(data.player));
+  return data;
+},
+async registerWithPin({ phoneNumber, playerName, pin }) {
+  const { data } = await client.post("/auth/player/register", {
+    phone_number: phoneNumber,
+    player_name: playerName,
+    pin,
+  });
+  this.token = data.token;
+  this.player = data.player;
+  localStorage.setItem("player_token", data.token);
+  localStorage.setItem("player_data", JSON.stringify(data.player));
+  return data;
+},
 
     async fetchDashboard() {
       const { data } = await client.get("/players/me", { role: "player" });

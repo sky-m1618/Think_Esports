@@ -6,6 +6,7 @@ from app.extensions import db, migrate, jwt, cors
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from sqlalchemy import inspect, text
 
 
 def create_app(config_name=None):
@@ -44,22 +45,31 @@ def create_app(config_name=None):
     # app.register_blueprint(uploads_bp, url_prefix="/api/uploads")
     
     with app.app_context():
-        from app.models import Admin,Player,Team,TeamMember, Tournament,Registration, Match,MatchResult 
+        from app.models import Admin, Player, Team, TeamMember, Tournament, Registration, Match, MatchResult
         print("Registered Tables:", db.metadata.tables.keys())
 
         db.create_all()
 
-        admin_username = "skym1618"  # Choose your username
+        # --- Lightweight auto-patch for columns added after the table already
+        #     existed. db.create_all() only creates missing TABLES, never alters
+        #     existing ones, so new columns (like players.pin_hash) need this. ---
+        inspector = inspect(db.engine)
+        existing_columns = {col["name"] for col in inspector.get_columns("players")}
+        if "pin_hash" not in existing_columns:
+            print("Patching players table: adding pin_hash column...")
+            db.session.execute(text("ALTER TABLE players ADD COLUMN pin_hash VARCHAR(255)"))
+            db.session.commit()
+            print("players.pin_hash added.")
+
+        admin_username = "skym1618"
         existing_admin = Admin.query.filter_by(username=admin_username).first()
 
         if not existing_admin:
-            
             new_admin = Admin(
                 username=admin_username,
-                email = "akashmbytes@gmail.com",
-                password_hash=generate_password_hash("skym1618") # Or hashed_password depending on your model setup
+                email="akashmbytes@gmail.com",
             )
-            
+            new_admin.set_password("skym1618")
             db.session.add(new_admin)
             db.session.commit()
             print(f"--- Admin user '{admin_username}' successfully seeded! ---")

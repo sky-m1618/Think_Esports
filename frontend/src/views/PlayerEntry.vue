@@ -1,13 +1,16 @@
 <template>
   <div class="container entry-page">
     <div class="card entry-card">
-      <h2>{{ step === "phone" ? "Sign in to Arena" : "Verify your number" }}</h2>
+      <h2>{{ heading }}</h2>
       <p v-if="step === 'phone'">Enter your phone number to sign in or create a player profile.</p>
-      <p v-else>
-        We sent a 6-digit code to <strong>{{ fullPhone }}</strong
-        >. (Demo mode: use <code>123456</code>.)
+      <p v-else-if="step === 'login'">
+        Enter your 4-digit PIN for <strong>{{ phone }}</strong>.
+      </p>
+      <p v-else-if="step === 'register'">
+        First time here — set a 4-digit PIN for <strong>{{ phone }}</strong>.
       </p>
 
+      <!-- Step 1: phone number -->
       <form v-if="step === 'phone'" @submit.prevent="submitPhone">
         <div class="field" :class="{ 'has-error': errors.phone }">
           <label>Phone Number</label>
@@ -25,32 +28,84 @@
         </div>
         <button class="btn btn-primary btn-block" :disabled="loading">
           <span v-if="loading" class="spinner"></span>
-          <span v-else>Send OTP</span>
+          <span v-else>Continue</span>
         </button>
       </form>
 
-      <form v-else @submit.prevent="submitOtp">
-        <div class="field" :class="{ 'has-error': errors.otp }">
-          <label>OTP Code</label>
-          <input v-model="otp" type="text" inputmode="numeric" maxlength="6" placeholder="123456" />
-          <p v-if="errors.otp" class="error-text">{{ errors.otp }}</p>
-        </div>
-
-        <div v-if="needsName" class="field" :class="{ 'has-error': errors.name }">
-          <label>Player Name</label>
-          <input v-model="playerName" type="text" placeholder="Your in-game name" maxlength="80" />
-          <p class="hint">First time here — pick the name teammates will see.</p>
-          <p v-if="errors.name" class="error-text">{{ errors.name }}</p>
+      <!-- Step 2a: existing player — login with PIN -->
+      <form v-else-if="step === 'login'" @submit.prevent="submitLogin">
+        <div class="field" :class="{ 'has-error': errors.pin }">
+          <label>PIN</label>
+          <PinBoxes v-model="pin" ref="pinBoxesRef" />
+          <p v-if="errors.pin" class="error-text">{{ errors.pin }}</p>
         </div>
 
         <button class="btn btn-primary btn-block" :disabled="loading">
           <span v-if="loading" class="spinner"></span>
-          <span v-else>Verify &amp; Continue</span>
+          <span v-else>Sign In</span>
         </button>
-        <button type="button" class="btn btn-outline btn-block" style="margin-top: 10px" @click="step = 'phone'">
+        <button type="button" class="btn btn-outline btn-block" style="margin-top: 10px" @click="resetToPhone">
           Change number
         </button>
       </form>
+
+      <!-- Step 2b: new player — name + set PIN + confirm PIN -->
+      <form v-else-if="step === 'register'" @submit.prevent="submitRegister">
+        <div class="field" :class="{ 'has-error': errors.name }">
+          <label>Player Name</label>
+          <input v-model="playerName" type="text" placeholder="Your in-game name" maxlength="80" />
+          <p class="hint">The name teammates will see.</p>
+          <p v-if="errors.name" class="error-text">{{ errors.name }}</p>
+        </div>
+
+        <div class="field" :class="{ 'has-error': errors.pin }">
+          <label>Create PIN</label>
+          <PinBoxes v-model="pin" ref="pinBoxesRef" />
+          <p v-if="errors.pin" class="error-text">{{ errors.pin }}</p>
+        </div>
+
+        <div class="field" :class="{ 'has-error': errors.confirmPin }">
+          <label>Confirm PIN</label>
+          <PinBoxes v-model="confirmPin" ref="confirmPinBoxesRef" />
+          <p v-if="errors.confirmPin" class="error-text">{{ errors.confirmPin }}</p>
+        </div>
+
+        <button class="btn btn-primary btn-block" :disabled="loading">
+          <span v-if="loading" class="spinner"></span>
+          <span v-else>Create Account</span>
+        </button>
+        <button type="button" class="btn btn-outline btn-block" style="margin-top: 10px" @click="resetToPhone">
+          Change number
+        </button>
+      </form>
+      <!-- Step 2c: existing player, no PIN yet (e.g. added as a teammate) -->
+<form v-else-if="step === 'setup'" @submit.prevent="submitSetup">
+  <div class="field">
+    <label>Player Name</label>
+    <input :value="playerName" type="text" disabled />
+    <p class="hint">You were added to a team with this number — set a PIN to sign in.</p>
+  </div>
+
+  <div class="field" :class="{ 'has-error': errors.pin }">
+    <label>Create PIN</label>
+    <PinBoxes v-model="pin" ref="pinBoxesRef" />
+    <p v-if="errors.pin" class="error-text">{{ errors.pin }}</p>
+  </div>
+
+  <div class="field" :class="{ 'has-error': errors.confirmPin }">
+    <label>Confirm PIN</label>
+    <PinBoxes v-model="confirmPin" ref="confirmPinBoxesRef" />
+    <p v-if="errors.confirmPin" class="error-text">{{ errors.confirmPin }}</p>
+  </div>
+
+  <button class="btn btn-primary btn-block" :disabled="loading">
+    <span v-if="loading" class="spinner"></span>
+    <span v-else>Set PIN &amp; Continue</span>
+  </button>
+  <button type="button" class="btn btn-outline btn-block" style="margin-top: 10px" @click="resetToPhone">
+    Change number
+  </button>
+</form>
     </div>
   </div>
 </template>
@@ -60,22 +115,38 @@ import { ref, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { usePlayerStore } from "../store/player";
 import { useToastStore } from "../store/toast";
+import PinBoxes from "../components/PinBoxes.vue";
 
 const router = useRouter();
 const route = useRoute();
 const playerStore = usePlayerStore();
 const toast = useToastStore();
 
-const step = ref("phone");
+const step = ref("phone"); // "phone" | "login" | "register"
 const countryCode = ref("+91");
 const phone = ref("");
-const otp = ref("");
 const playerName = ref("");
+const pin = ref("");
+const confirmPin = ref("");
 const loading = ref(false);
-const needsName = ref(false);
 const errors = ref({});
 
-const fullPhone = computed(() => phone.value);
+const pinBoxesRef = ref(null);
+const confirmPinBoxesRef = ref(null);
+
+const heading = computed(() => {
+  if (step.value === "login") return "Enter your PIN";
+  if (step.value === "register") return "Create your PIN";
+  if (step.value === "setup") return "Set your PIN";
+  return "Sign in to Arena";
+});
+
+function resetToPhone() {
+  step.value = "phone";
+  pin.value = "";
+  confirmPin.value = "";
+  errors.value = {};
+}
 
 async function submitPhone() {
   errors.value = {};
@@ -85,9 +156,42 @@ async function submitPhone() {
   }
   loading.value = true;
   try {
-    await playerStore.requestOtp(phone.value);
-    step.value = "otp";
-    toast.success("OTP sent (demo code: 123456)");
+    const { exists, pin_set, player_name } = await playerStore.checkPhone(phone.value);
+    if (!exists) {
+      step.value = "register";
+    } else if (!pin_set) {
+      playerName.value = player_name; // pre-fill, read-only in the template
+      step.value = "setup";
+    } else {
+      step.value = "login";
+    }
+  } catch (e) {
+    toast.error(e.friendlyMessage);
+  } finally {
+    loading.value = false;
+  }
+}
+async function submitSetup() {
+  errors.value = {};
+  let ok = true;
+  if (!/^\d{4}$/.test(pin.value)) {
+    errors.value.pin = "Enter a 4-digit PIN";
+    ok = false;
+  }
+  if (!/^\d{4}$/.test(confirmPin.value)) {
+    errors.value.confirmPin = "Confirm your 4-digit PIN";
+    ok = false;
+  } else if (ok && pin.value !== confirmPin.value) {
+    errors.value.confirmPin = "PINs don't match";
+    ok = false;
+  }
+  if (!ok) return;
+
+  loading.value = true;
+  try {
+    await playerStore.setPin({ phoneNumber: phone.value, pin: pin.value });
+    toast.success(`Welcome, ${playerStore.player.player_name}!`);
+    router.push(route.query.redirect || "/dashboard");
   } catch (e) {
     toast.error(e.friendlyMessage);
   } finally {
@@ -95,24 +199,59 @@ async function submitPhone() {
   }
 }
 
-async function submitOtp() {
+async function submitLogin() {
   errors.value = {};
-  if (!/^\d{6}$/.test(otp.value)) {
-    errors.value.otp = "Enter the 6-digit code";
+  if (!/^\d{4}$/.test(pin.value)) {
+    errors.value.pin = "Enter your 4-digit PIN";
     return;
   }
   loading.value = true;
   try {
-    await playerStore.verifyOtp({ phoneNumber: phone.value, otp: otp.value, playerName: playerName.value });
+    await playerStore.loginWithPin({ phoneNumber: phone.value, pin: pin.value });
+    toast.success(`Welcome back, ${playerStore.player.player_name}!`);
+    router.push(route.query.redirect || "/dashboard");
+  } catch (e) {
+    errors.value.pin = "Incorrect PIN";
+    pin.value = "";
+    pinBoxesRef.value?.focusFirst();
+    toast.error(e.friendlyMessage);
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function submitRegister() {
+  errors.value = {};
+  let ok = true;
+
+  if (!playerName.value.trim()) {
+    errors.value.name = "Player name is required";
+    ok = false;
+  }
+  if (!/^\d{4}$/.test(pin.value)) {
+    errors.value.pin = "Enter a 4-digit PIN";
+    ok = false;
+  }
+  if (!/^\d{4}$/.test(confirmPin.value)) {
+    errors.value.confirmPin = "Confirm your 4-digit PIN";
+    ok = false;
+  } else if (ok && pin.value !== confirmPin.value) {
+    errors.value.confirmPin = "PINs don't match";
+    ok = false;
+  }
+  if (!ok) return;
+
+  loading.value = true;
+  try {
+    await playerStore.registerWithPin({
+      phoneNumber: phone.value,
+      playerName: playerName.value.trim(),
+      pin: pin.value,
+    });
     toast.success(`Welcome, ${playerStore.player.player_name}!`);
     router.push(route.query.redirect || "/dashboard");
   } catch (e) {
-    if (e.response?.status === 400 && /player_name/i.test(e.response.data?.error || "")) {
-      needsName.value = true;
-      errors.value.name = "";
-    } else {
-      toast.error(e.friendlyMessage);
-    }
+    toast.error(e.friendlyMessage);
   } finally {
     loading.value = false;
   }
