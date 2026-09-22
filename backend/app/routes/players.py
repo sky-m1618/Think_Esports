@@ -36,7 +36,8 @@ def check_phone(phone):
     """Used by the team-creation form to flag whether a teammate phone is a
     registered player, and to warn about duplicates within the same team."""
     player = Player.query.filter_by(phone_number=phone).first()
-    return jsonify({"exists": player is not None, "player_name": player.player_name if player else None})
+    pin_set = bool(player.pin_hash) if player else False 
+    return jsonify({"exists": player is not None, "player_name": player.player_name if player else None, "pin_set":pin_set})
 
 
 # ---------------------------------------------------------------------------

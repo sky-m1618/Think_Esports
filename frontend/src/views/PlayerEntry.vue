@@ -256,6 +256,8 @@ async function submitRegister() {
     loading.value = false;
   }
 }
+console.log(step.value);
+
 </script>
 
 <style scoped>

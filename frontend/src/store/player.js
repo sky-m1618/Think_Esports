@@ -42,6 +42,17 @@ async registerWithPin({ phoneNumber, playerName, pin }) {
   localStorage.setItem("player_data", JSON.stringify(data.player));
   return data;
 },
+async setPin({ phoneNumber, pin }) {
+  const { data } = await client.post("/auth/player/set-pin", {
+    phone_number: phoneNumber,
+    pin,
+  });
+  this.token = data.token;
+  this.player = data.player;
+  localStorage.setItem("player_token", data.token);
+  localStorage.setItem("player_data", JSON.stringify(data.player));
+  return data;
+},
 
     async fetchDashboard() {
       const { data } = await client.get("/players/me", { role: "player" });
